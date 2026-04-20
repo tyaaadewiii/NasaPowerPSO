@@ -1,0 +1,10 @@
+@import url("https://unpkg.com/leaflet@1.9.4/dist/leaflet.css");
+@import "tailwindcss";
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #060e1a; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
