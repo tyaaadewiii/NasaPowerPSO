@@ -2,7 +2,7 @@ import pandas as pd
 import os
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CSV_PATH = os.path.join(BASE_DIR, 'data', 'gabungan_histori_prediksi_NasaPower_iqr1.5.csv')
+CSV_PATH = os.path.join(BASE_DIR, 'data', 'Skripsi_PSO.csv')
 
 def load_df():
     df = pd.read_csv(CSV_PATH)

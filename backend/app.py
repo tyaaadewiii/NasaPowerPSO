@@ -9,7 +9,7 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # Mencari lokasi file CSV secara otomatis
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CSV_PATH = os.path.join(BASE_DIR, 'gabungan_histori_prediksi_NasaPowerp_PSO(true).csv')
+CSV_PATH = os.path.join(BASE_DIR, 'Skripsi_PSO.csv')
 
 # Koordinat pusat Kabupaten di Bali
 KOORDINAT = {
