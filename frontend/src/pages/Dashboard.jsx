@@ -464,7 +464,7 @@ function MapSection({ latlng, wilayah, avgVal, tier }) {
           touchZoom={false} doubleClickZoom={false} zoomControl={false} keyboard={false}
           style={{ height: '100%', width: '100%' }}
         >
-          <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png" />
+          <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
           <ChangeView center={latlng} />
           <CircleMarker
             center={latlng} radius={14}
