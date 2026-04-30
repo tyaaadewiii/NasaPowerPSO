@@ -1,5 +1,4 @@
 {
-  "rootDirectory": "BALIRAIN_PROPHET",
   "buildCommand": "cd frontend && npm install && npm run build",
   "outputDirectory": "frontend/dist",
   "framework": null,
