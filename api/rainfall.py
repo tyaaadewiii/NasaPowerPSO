@@ -17,11 +17,13 @@ KOORDINAT = {
 }
 
 def load_data():
-    # File CSV diletakkan di folder /api/data/
     base_dir = os.path.dirname(os.path.abspath(__file__))
     csv_path = os.path.join(base_dir, 'data', 'Skripsi_PSO.csv')
     df = pd.read_csv(csv_path)
-    df['ds'] = pd.to_datetime(df['ds'])
+
+    df['ds'] = pd.to_datetime(df['ds'], errors='coerce')
+    df['wilayah'] = df['wilayah'].astype(str).str.strip()
+
     return df
 
 def get_response(wilayah, tahun, bulan):
@@ -30,7 +32,9 @@ def get_response(wilayah, tahun, bulan):
     mask = (df['ds'].dt.year == tahun) & (df['ds'].dt.month == bulan)
     df_period = df[mask]
 
-    chart_df = df_period[df_period['wilayah'] == wilayah].sort_values('ds')
+    chart_df = df_period[
+        df_period['wilayah'].str.strip().str.lower() == wilayah.strip().lower()
+    ].sort_values('ds')
 
     # Konversi datetime ke string agar bisa di-JSON-kan
     chart_res = []
