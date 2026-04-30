@@ -1,4 +1,3 @@
-from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import pandas as pd
 import json
@@ -76,34 +75,32 @@ def get_response(wilayah, tahun, bulan):
     }
 
 
-class handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        parsed = urlparse(self.path)
-        params = parse_qs(parsed.query)
+def handler(request):
+    from urllib.parse import urlparse, parse_qs
 
-        wilayah = params.get('wilayah', ['Badung'])[0]
-        tahun   = int(params.get('tahun',  ['2025'])[0])
-        bulan   = int(params.get('bulan',  ['1'])[0])
+    parsed = urlparse(request.url)
+    params = parse_qs(parsed.query)
 
-        try:
-            result = get_response(wilayah, tahun, bulan)
-            body = json.dumps(result).encode('utf-8')
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            self.wfile.write(body)
-        except Exception as e:
-            error = json.dumps({'error': str(e)}).encode('utf-8')
-            self.send_response(500)
-            self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            self.wfile.write(error)
+    wilayah = params.get('wilayah', ['Badung'])[0]
+    tahun   = int(params.get('tahun',  ['2025'])[0])
+    bulan   = int(params.get('bulan',  ['1'])[0])
 
-    def do_OPTIONS(self):
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
-        self.end_headers()
+    try:
+        result = get_response(wilayah, tahun, bulan)
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            },
+            "body": json.dumps(result)
+        }
+    except Exception as e:
+        return {
+            "statusCode": 500,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            },
+            "body": json.dumps({"error": str(e)})
+        }
