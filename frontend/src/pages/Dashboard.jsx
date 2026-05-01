@@ -284,7 +284,7 @@ function Navbar() {
   );
 }
 
-function TopPanel({ input, onInputChange, onFetch, loading, summary, tier }) {
+function TopPanel({ input, query, onInputChange, onFetch, loading, summary, tier }) {
   const filterFields = [
     { label: 'Wilayah', key: 'wilayah', options: WILAYAH_LIST.map(w => ({ value: w, label: w })) },
     { label: 'Tahun',   key: 'tahun',   options: TAHUN_LIST.map(y => ({ value: y, label: y })) },
@@ -414,7 +414,7 @@ function TopPanel({ input, onInputChange, onFetch, loading, summary, tier }) {
                   color: '#0f172a', letterSpacing: '-0.01em', lineHeight: 1.1,
                 }}
               >
-                {input.wilayah}
+                {query.wilayah}
               </div>
               <p style={{
                 fontSize: 12.5, fontStyle: 'italic', color: '#94a3b8',
@@ -509,7 +509,7 @@ function ChartSection({ chartData, bulanIndex, tahun, wilayah, summary, tier }) 
           {NAMA_BULAN[bulanIndex]} {tahun} · {wilayah}
         </span>
       </div>
-      <div style={{ width: '100%', height: '350px' }}>
+      <div style={{ width: '100%', minHeight: '350px' }}>
         <ResponsiveContainer width="100%" height="100%" minHeight={260}>
           <AreaChart data={chartData} margin={{ top: 10, right: 8, left: -20, bottom: 0 }}>
             <defs>
@@ -687,16 +687,15 @@ const INITIAL_DATA  = { chart: [], map: [], summary: { avg: 0, max: 0, narasi: '
 const Dashboard = () => {
   const [input,   setInput]   = useState(INITIAL_INPUT);
   const [data,    setData]    = useState(INITIAL_DATA);
+  const [query,   setQuery] = useState(INITIAL_INPUT);
   const [loading, setLoading] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { wilayah, tahun, bulan } = input;
+      const { wilayah, tahun, bulan } = query;
 
-      const res = await fetch(
-        `/api/rainfall?wilayah=${wilayah}&tahun=${tahun}&bulan=${bulan}`
-      );
+      const res = await fetch(`http://localhost:8000/api/rainfall?wilayah=${wilayah}&tahun=${tahun}&bulan=${bulan}`);
 
       // 🔥 TAMBAHAN PENTING
       if (!res.ok) {
@@ -720,11 +719,11 @@ const Dashboard = () => {
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [query]);
 
-  const avgVal    = data.map?.find(m => m.wilayah === input.wilayah)?.curah_hujan ?? data.summary?.avg ?? 0;
+  const avgVal = data.map?.find(m => m.wilayah === query.wilayah)?.curah_hujan ?? data.summary?.avg ?? 0;
   const tier      = getRainfallTier(avgVal);
-  const latlng    = WILAYAH_COORDS[input.wilayah];
+  const latlng    = WILAYAH_COORDS[query.wilayah];
   const chartData = (data.chart ?? []).map(toChartPoint);
 
   const handleInputChange = (key, value) => setInput(prev => ({ ...prev, [key]: value }));
@@ -738,8 +737,9 @@ const Dashboard = () => {
 
         <TopPanel
           input={input}
+          query={query}
           onInputChange={handleInputChange}
-          onFetch={fetchData}
+          onFetch={() => setQuery(input)} 
           loading={loading}
           summary={data.summary}
           tier={tier}
@@ -751,12 +751,12 @@ const Dashboard = () => {
             className="main-content-grid"
             style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}
           >
-            <MapSection latlng={latlng} wilayah={input.wilayah} avgVal={avgVal} tier={tier} />
+            <MapSection latlng={latlng} wilayah={query.wilayah} avgVal={avgVal} tier={tier} />
             <ChartSection
               chartData={chartData}
-              bulanIndex={+input.bulan - 1}
-              tahun={input.tahun}
-              wilayah={input.wilayah}
+              bulanIndex={+query.bulan - 1}
+              tahun={query.tahun}
+              wilayah={query.wilayah}
               summary={data.summary}
               tier={tier}
             />

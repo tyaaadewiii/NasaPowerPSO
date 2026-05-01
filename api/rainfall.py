@@ -1,3 +1,4 @@
+from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import pandas as pd
 import json
@@ -17,12 +18,11 @@ KOORDINAT = {
 }
 
 def load_data():
+    # File CSV diletakkan di folder /api/data/
     base_dir = os.path.dirname(os.path.abspath(__file__))
     csv_path = os.path.join(base_dir, 'data', 'Skripsi_PSO.csv')
     df = pd.read_csv(csv_path)
-
-    df['ds'] = pd.to_datetime(df['ds'], errors='coerce')
-
+    df['ds'] = pd.to_datetime(df['ds'])
     return df
 
 def get_response(wilayah, tahun, bulan):
@@ -31,9 +31,7 @@ def get_response(wilayah, tahun, bulan):
     mask = (df['ds'].dt.year == tahun) & (df['ds'].dt.month == bulan)
     df_period = df[mask]
 
-    chart_df = df_period[
-        df_period['wilayah'].str.strip().str.lower() == wilayah.strip().lower()
-    ].sort_values('ds')
+    chart_df = df_period[df_period['wilayah'] == wilayah].sort_values('ds')
 
     # Konversi datetime ke string agar bisa di-JSON-kan
     chart_res = []
@@ -53,11 +51,9 @@ def get_response(wilayah, tahun, bulan):
     narasi = f'Wilayah {wilayah} pada periode ini cenderung {kondisi} dengan rata-rata harian {avg_val:.2f} mm.'
 
     map_stats = df_period.groupby('wilayah').agg({'curah_hujan': 'mean'}).reset_index()
-
     map_res = []
     for _, row in map_stats.iterrows():
-        w = row['wilayah'].strip()
-
+        w = row['wilayah']
         if w in KOORDINAT:
             map_res.append({
                 'wilayah': w,
@@ -80,32 +76,46 @@ def get_response(wilayah, tahun, bulan):
     }
 
 
-def handler(request):
-    from urllib.parse import urlparse, parse_qs
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        parsed = urlparse(self.path)
 
-    parsed = urlparse(request.url)
-    params = parse_qs(parsed.query)
+        if parsed.path != "/api/rainfall":
+            self.send_response(404)
+            self.end_headers()
+            self.wfile.write(b'Not Found')
+            return
 
-    wilayah = params.get('wilayah', ['Badung'])[0]
-    tahun   = int(params.get('tahun',  ['2025'])[0])
-    bulan   = int(params.get('bulan',  ['1'])[0])
+        params = parse_qs(parsed.query)
 
-    try:
-        result = get_response(wilayah, tahun, bulan)
-        return {
-            "statusCode": 200,
-            "headers": {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*"
-            },
-            "body": json.dumps(result)
-        }
-    except Exception as e:
-        return {
-            "statusCode": 500,
-            "headers": {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*"
-            },
-            "body": json.dumps({"error": str(e)})
-        }
+        wilayah = params.get('wilayah', ['Badung'])[0]
+        tahun   = int(params.get('tahun',  ['2025'])[0])
+        bulan   = int(params.get('bulan',  ['1'])[0])
+
+        try:
+            result = get_response(wilayah, tahun, bulan)
+            body = json.dumps(result).encode('utf-8')
+
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(body)
+
+        except Exception as e:
+            error = json.dumps({'error': str(e)}).encode('utf-8')
+
+            self.send_response(500)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(error)
+
+if __name__ == "__main__":
+    from http.server import HTTPServer
+    
+    port = 8000
+    server = HTTPServer(("0.0.0.0", port), handler)
+    
+    print(f"Server jalan di http://localhost:{port}")
+    server.serve_forever()
