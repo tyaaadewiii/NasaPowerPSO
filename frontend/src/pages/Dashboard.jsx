@@ -429,8 +429,8 @@ function TopPanel({ input, query, onInputChange, onFetch, loading, summary, avgT
               className="stat-grid"
               style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}
             >
-              <StatCard label="Rata-rata Harian" value={avgValNum} tier={avgTier} />
-              <StatCard label="Curah Tertinggi"  value={maxValNum} tier={maxTier} />
+              <StatCard label="Rata-rata Harian" value={summary?.avg} tier={avgTier} />
+              <StatCard label="Curah Tertinggi"  value={summary?.max} tier={maxTier} />
             </div>
           </div>
         </div>
