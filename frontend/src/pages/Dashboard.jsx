@@ -210,7 +210,7 @@ function StatCard({ label, value, tier }) {
   return (
     <div style={{
       background: '#fff', border: `1.5px solid ${tier.color}44`,
-      borderRadius: 10, padding: '11px 14px', boxShadow: `0 2px 12px ${tier.glow}`,
+      borderRadius: 10, padding: '11px 14px', boxShadow: `0 2px 12px ${tier.color}33`,
     }}>
       <div style={{
         fontFamily: "'Sora', sans-serif", fontSize: 8, fontWeight: 700,
@@ -284,7 +284,7 @@ function Navbar() {
   );
 }
 
-function TopPanel({ input, query, onInputChange, onFetch, loading, summary, tier }) {
+function TopPanel({ input, query, onInputChange, onFetch, loading, summary, avgTier, maxTier }) {
   const filterFields = [
     { label: 'Wilayah', key: 'wilayah', options: WILAYAH_LIST.map(w => ({ value: w, label: w })) },
     { label: 'Tahun',   key: 'tahun',   options: TAHUN_LIST.map(y => ({ value: y, label: y })) },
@@ -429,8 +429,8 @@ function TopPanel({ input, query, onInputChange, onFetch, loading, summary, tier
               className="stat-grid"
               style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}
             >
-              <StatCard label="Rata-rata Harian" value={summary?.avg} tier={tier} />
-              <StatCard label="Curah Tertinggi"  value={summary?.max} tier={tier} />
+              <StatCard label="Rata-rata Harian" value={summary?.avg} tier={avgTier} />
+              <StatCard label="Curah Tertinggi"  value={summary?.max} tier={maxTier} />
             </div>
           </div>
         </div>
@@ -721,8 +721,11 @@ const Dashboard = () => {
 
   useEffect(() => { fetchData(); }, [query]);
 
-  const avgVal = data.map?.find(m => m.wilayah === query.wilayah)?.curah_hujan ?? data.summary?.avg ?? 0;
-  const tier      = getRainfallTier(avgVal);
+  const avgVal = data.map?.find(m => m.wilayah.toLowerCase() === query.wilayah.toLowerCase())?.curah_hujan ?? data.summary?.avg ?? 0;
+  const maxVal = data.summary?.max ?? 0;
+
+  const avgTier = getRainfallTier(data.summary?.avg ?? 0);
+  const maxTier = getRainfallTier(data.summary?.max ?? 0);
   const latlng    = WILAYAH_COORDS[query.wilayah];
   const chartData = (data.chart ?? []).map(toChartPoint);
 
@@ -742,7 +745,8 @@ const Dashboard = () => {
           onFetch={() => setQuery(input)} 
           loading={loading}
           summary={data.summary}
-          tier={tier}
+          avgTier={avgTier}
+          maxTier={maxTier}
         />
 
         {/* Peta + Chart */}
@@ -751,14 +755,14 @@ const Dashboard = () => {
             className="main-content-grid"
             style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}
           >
-            <MapSection latlng={latlng} wilayah={query.wilayah} avgVal={avgVal} tier={tier} />
+            <MapSection latlng={latlng} wilayah={query.wilayah} avgVal={avgVal} tier={avgTier} />
             <ChartSection
               chartData={chartData}
               bulanIndex={+query.bulan - 1}
               tahun={query.tahun}
               wilayah={query.wilayah}
               summary={data.summary}
-              tier={tier}
+              tier={avgTier}
             />
           </div>
         </div>
