@@ -429,8 +429,8 @@ function TopPanel({ input, query, onInputChange, onFetch, loading, summary, avgT
               className="stat-grid"
               style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}
             >
-              <StatCard label="Rata-rata Harian" value={summary?.avg} tier={avgTier} />
-              <StatCard label="Curah Tertinggi"  value={summary?.max} tier={maxTier} />
+              <StatCard label="Rata-rata Harian" value={avgValNum} tier={avgTier} />
+              <StatCard label="Curah Tertinggi"  value={maxValNum} tier={maxTier} />
             </div>
           </div>
         </div>
@@ -721,11 +721,13 @@ const Dashboard = () => {
 
   useEffect(() => { fetchData(); }, [query]);
 
-  const avgVal = data.map?.find(m => m.wilayah.toLowerCase() === query.wilayah.toLowerCase())?.curah_hujan ?? data.summary?.avg ?? 0;
-  const maxVal = data.summary?.max ?? 0;
+  const toNumber = (v) => parseFloat(String(v).replace(',', '.').trim()) || 0;
 
-  const avgTier = getRainfallTier(data.summary?.avg ?? 0);
-  const maxTier = getRainfallTier(data.summary?.max ?? 0);
+  const avgValNum = toNumber(data.summary?.avg);
+  const maxValNum = toNumber(data.summary?.max);
+
+  const avgTier = getRainfallTier(avgValNum);
+  const maxTier = getRainfallTier(maxValNum);
   const latlng    = WILAYAH_COORDS[query.wilayah];
   const chartData = (data.chart ?? []).map(toChartPoint);
 
@@ -755,7 +757,7 @@ const Dashboard = () => {
             className="main-content-grid"
             style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}
           >
-            <MapSection latlng={latlng} wilayah={query.wilayah} avgVal={avgVal} tier={avgTier} />
+            <MapSection latlng={latlng} wilayah={query.wilayah} avgVal={avgValNum} tier={avgTier} />
             <ChartSection
               chartData={chartData}
               bulanIndex={+query.bulan - 1}
