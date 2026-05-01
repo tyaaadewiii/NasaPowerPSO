@@ -88,8 +88,8 @@ const MAP_BOUNDS   = [[-9.0, 114.4], [-7.8, 115.8]];
 // SECTION 3 — UTILITIES
 // ─────────────────────────────────────────────────────────
 function getRainfallTier(val) {
-  if (val >= 20) return { label: 'Tinggi', color: '#ef4444' };
-  if (val >= 5)  return { label: 'Sedang', color: '#f59e0b' };
+  if (val >= 16) return { label: 'Tinggi', color: '#ef4444' };
+  if (val >= 6)  return { label: 'Sedang', color: '#f59e0b' };
   return { label: 'Rendah', color: '#10b981' };
 }
 
