@@ -695,7 +695,7 @@ const Dashboard = () => {
     try {
       const { wilayah, tahun, bulan } = query;
 
-      const res = await fetch(`http://localhost:8000/api/rainfall?wilayah=${wilayah}&tahun=${tahun}&bulan=${bulan}`);
+      const res = await fetch(`/api/rainfall?wilayah=${wilayah}&tahun=${tahun}&bulan=${bulan}`);
 
       // 🔥 TAMBAHAN PENTING
       if (!res.ok) {
