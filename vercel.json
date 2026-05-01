@@ -1,20 +1,16 @@
 {
   "buildCommand": "cd frontend && npm install && npm run build",
   "outputDirectory": "frontend/dist",
-  "framework": null,
-  
-  "rewrites": [
-    { "source": "/api/rainfall", "destination": "/api/rainfall" },
-    { "source": "/(.*)",         "destination": "/index.html" }
-  ],
-  "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin",  "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET, OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
-      ]
+
+  "functions": {
+    "api/rainfall.py": {
+      "runtime": "@vercel/python@3.1.0",
+      "includeFiles": "api/data/Skripsi_PSO.csv"
     }
+  },
+
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

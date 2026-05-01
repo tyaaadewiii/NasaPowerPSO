@@ -693,9 +693,26 @@ const Dashboard = () => {
     setLoading(true);
     try {
       const { wilayah, tahun, bulan } = input;
-      const res  = await fetch(`/api/rainfall?wilayah=${wilayah}&tahun=${tahun}&bulan=${bulan}`);
-      const json = await res.json();
+
+      const res = await fetch(
+        `/api/rainfall?wilayah=${wilayah}&tahun=${tahun}&bulan=${bulan}`
+      );
+
+      // 🔥 TAMBAHAN PENTING
+      if (!res.ok) {
+        throw new Error("Response tidak OK");
+      }
+
+      const text = await res.text();
+
+      if (text.startsWith("<")) {
+        console.error("API RETURN HTML:", text);
+        throw new Error("API salah (return HTML, bukan JSON)");
+      }
+
+      const json = JSON.parse(text);
       setData(json);
+
     } catch (err) {
       console.error('[Dashboard] Gagal memuat data:', err);
     } finally {

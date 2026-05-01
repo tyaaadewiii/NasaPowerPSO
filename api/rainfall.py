@@ -22,7 +22,6 @@ def load_data():
     df = pd.read_csv(csv_path)
 
     df['ds'] = pd.to_datetime(df['ds'], errors='coerce')
-    df['wilayah'] = df['wilayah'].astype(str).str.strip()
 
     return df
 
@@ -54,9 +53,11 @@ def get_response(wilayah, tahun, bulan):
     narasi = f'Wilayah {wilayah} pada periode ini cenderung {kondisi} dengan rata-rata harian {avg_val:.2f} mm.'
 
     map_stats = df_period.groupby('wilayah').agg({'curah_hujan': 'mean'}).reset_index()
+
     map_res = []
     for _, row in map_stats.iterrows():
-        w = row['wilayah']
+        w = row['wilayah'].strip()
+
         if w in KOORDINAT:
             map_res.append({
                 'wilayah': w,
