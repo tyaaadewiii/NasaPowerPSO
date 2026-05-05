@@ -231,7 +231,7 @@ class handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     from http.server import HTTPServer
 
-    port = 8000
+    port = int(os.environ.get("PORT", 8000))
     server = HTTPServer(("0.0.0.0", port), handler)
 
     print(f"🚀 Server jalan di http://localhost:{port}")

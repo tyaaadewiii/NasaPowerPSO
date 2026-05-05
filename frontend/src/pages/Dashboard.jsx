@@ -696,8 +696,7 @@ const Dashboard = () => {
     try {
       const { wilayah, tahun, bulan } = query;
 
-      const res = await fetch("/api/rainfall?wilayah=Denpasar&tahun=2026&bulan=1");
-
+      const res = await fetch(`https://balirain-production.up.railway.app/api/rainfall?wilayah=${wilayah}&tahun=${tahun}&bulan=${bulan}`);
       if (!res.ok) {
         throw new Error("Response tidak OK");
       }
