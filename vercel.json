@@ -2,6 +2,11 @@
   "buildCommand": "cd frontend && npm install && npm run build",
   "outputDirectory": "frontend/dist",
   "framework": null,
+  "functions": {
+    "api/rainfall.py": {
+      "runtime": "python3.11"
+    }
+  },
   
   "rewrites": [
     { "source": "/api/rainfall", "destination": "/api/rainfall" },

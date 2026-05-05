@@ -2,6 +2,7 @@ import pandas as pd
 import os
 import pickle
 import calendar
+import json
 
 # =========================
 # KOORDINAT
@@ -19,13 +20,17 @@ KOORDINAT = {
 }
 
 # =========================
-# LOAD MODEL (PKL) SEKALI
+# LOAD MODEL (PKL)
 # =========================
 def load_models():
     base_dir = os.path.dirname(__file__)
-    model_dir = os.path.join(base_dir, '..', 'models')
+    model_dir = os.path.join(base_dir, 'models')
 
     models = {}
+
+    if not os.path.exists(model_dir):
+        print("⚠️ Folder models tidak ditemukan")
+        return models
 
     for file in os.listdir(model_dir):
         if file.endswith(".pkl"):
@@ -38,11 +43,15 @@ def load_models():
 
 
 # =========================
-# LOAD DATA CSV (UNTUK MAP)
+# LOAD DATA CSV
 # =========================
 def load_data():
     base_dir = os.path.dirname(__file__)
-    csv_path = os.path.join(base_dir, '..', 'data', 'Skripsi_PSO.csv')
+    csv_path = os.path.join(base_dir, 'data', 'Skripsi_PSO.csv')
+
+    if not os.path.exists(csv_path):
+        print("⚠️ CSV tidak ditemukan:", csv_path)
+        return {}
 
     df = pd.read_csv(csv_path)
     df['ds'] = pd.to_datetime(df['ds'])
@@ -64,7 +73,7 @@ DATA   = load_data()
 
 
 # =========================
-# MAIN FUNCTION
+# MAIN LOGIC
 # =========================
 def get_response(wilayah, tahun, bulan):
     wilayah = wilayah.capitalize()
@@ -74,9 +83,7 @@ def get_response(wilayah, tahun, bulan):
 
     model = MODELS[wilayah]
 
-    # =========================
-    # CHART → pakai PKL
-    # =========================
+    # ===== CHART (PKL) =====
     days = calendar.monthrange(tahun, bulan)[1]
 
     future = pd.date_range(
@@ -103,9 +110,7 @@ def get_response(wilayah, tahun, bulan):
 
     kondisi = "Basah" if avg_val > 10 else "Normal" if avg_val > 5 else "Kering"
 
-    # =========================
-    # MAP → pakai CSV (RINGAN)
-    # =========================
+    # ===== MAP (CSV) =====
     map_res = []
 
     for w, coords in KOORDINAT.items():
@@ -139,53 +144,35 @@ def get_response(wilayah, tahun, bulan):
         "selected_coords": KOORDINAT.get(wilayah)
     }
 
-# =========================
-# API HANDLER
-# =========================
-class handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        parsed = urlparse(self.path)
-
-        if parsed.path != "/api/rainfall":
-            self.send_response(404)
-            self.end_headers()
-            self.wfile.write(b'Not Found')
-            return
-
-        params = parse_qs(parsed.query)
-
-        wilayah = params.get('wilayah', ['Badung'])[0]
-        tahun   = int(params.get('tahun',  ['2025'])[0])
-        bulan   = int(params.get('bulan',  ['1'])[0])
-
-        try:
-            result = get_response(wilayah, tahun, bulan)
-            body = json.dumps(result).encode('utf-8')
-
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            self.wfile.write(body)
-
-        except Exception as e:
-            error = json.dumps({'error': str(e)}).encode('utf-8')
-
-            self.send_response(500)
-            self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            self.wfile.write(error)
-
 
 # =========================
-# RUN SERVER
+# VERCEL HANDLER
 # =========================
-if __name__ == "__main__":
-    from http.server import HTTPServer
+def handler(request):
+    try:
+        wilayah = request.args.get("wilayah", "Badung")
+        tahun   = int(request.args.get("tahun", 2026))
+        bulan   = int(request.args.get("bulan", 1))
 
-    port = int(os.environ.get("PORT", 8000))
-    server = HTTPServer(("0.0.0.0", port), handler)
+        result = get_response(wilayah, tahun, bulan)
 
-    print(f"🚀 Server jalan di http://localhost:{port}")
-    server.serve_forever()
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            },
+            "body": json.dumps(result)
+        }
+
+    except Exception as e:
+        print("❌ ERROR:", str(e))
+
+        return {
+            "statusCode": 500,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            },
+            "body": json.dumps({"error": str(e)})
+        }
