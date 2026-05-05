@@ -2,11 +2,15 @@
   "buildCommand": "cd frontend && npm install && npm run build",
   "outputDirectory": "frontend/dist",
   "framework": null,
+  "functions": {
+    "api/rainfall.py": {}
+  },
 
   "rewrites": [
-    { "source": "/api/rainfall", "destination": "/api/rainfall" },
-    { "source": "/(.*)",         "destination": "/index.html" }
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
+  
   "headers": [
     {
       "source": "/api/(.*)",

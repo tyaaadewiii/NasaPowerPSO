@@ -71,6 +71,8 @@ def load_data():
 MODELS = load_models()
 DATA   = load_data()
 
+print("DATA:", DATA.keys())
+print("MODELS:", MODELS.keys())
 
 # =========================
 # MAIN LOGIC
