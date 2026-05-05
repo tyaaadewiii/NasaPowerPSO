@@ -1,7 +1,4 @@
-from http.server import BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
 import pandas as pd
-import json
 import os
 import pickle
 import calendar
@@ -10,23 +7,23 @@ import calendar
 # KOORDINAT
 # =========================
 KOORDINAT = {
-    'Badung':     [-8.5833, 115.1833],
-    'Bangli':     [-8.2500, 115.3500],
-    'Buleleng':   [-8.2000, 114.9000],
-    'Denpasar':   [-8.6500, 115.2167],
-    'Gianyar':    [-8.4833, 115.3167],
-    'Jembrana':   [-8.3000, 114.6667],
+    'Badung': [-8.5833, 115.1833],
+    'Bangli': [-8.2500, 115.3500],
+    'Buleleng': [-8.2000, 114.9000],
+    'Denpasar': [-8.6500, 115.2167],
+    'Gianyar': [-8.4833, 115.3167],
+    'Jembrana': [-8.3000, 114.6667],
     'Karangasem': [-8.3500, 115.5333],
-    'Klungkung':  [-8.5500, 115.4000],
-    'Tabanan':    [-8.5333, 115.1167],
+    'Klungkung': [-8.5500, 115.4000],
+    'Tabanan': [-8.5333, 115.1167],
 }
 
 # =========================
-# LOAD MODEL (PKL)
+# LOAD MODEL (PKL) SEKALI
 # =========================
 def load_models():
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    model_dir = os.path.join(base_dir, 'models')
+    base_dir = os.path.dirname(__file__)
+    model_dir = os.path.join(base_dir, '..', 'models')
 
     models = {}
 
@@ -36,132 +33,91 @@ def load_models():
             with open(os.path.join(model_dir, file), "rb") as f:
                 models[wilayah] = pickle.load(f)
 
+    print("✅ Models loaded:", list(models.keys()))
     return models
 
 
 # =========================
-# LOAD DATA CSV
+# LOAD DATA CSV (UNTUK MAP)
 # =========================
 def load_data():
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(base_dir, "data", "Skripsi_PSO.csv")
+    base_dir = os.path.dirname(__file__)
+    csv_path = os.path.join(base_dir, '..', 'data', 'Skripsi_PSO.csv')
 
-    df = pd.read_csv(path)
-
-    # FIX penting
+    df = pd.read_csv(csv_path)
     df['ds'] = pd.to_datetime(df['ds'])
-    df['wilayah'] = df['wilayah'].str.strip().str.capitalize()
+    df['wilayah'] = df['wilayah'].str.capitalize()
 
     data_dict = {}
+    for w in df['wilayah'].unique():
+        data_dict[w] = df[df['wilayah'] == w]
 
-    for wilayah in df['wilayah'].unique():
-        data_dict[wilayah] = df[df['wilayah'] == wilayah]
-
+    print("✅ CSV loaded:", list(data_dict.keys()))
     return data_dict
 
 
 # =========================
-# INIT
+# GLOBAL LOAD
 # =========================
 MODELS = load_models()
 DATA   = load_data()
 
-print("✅ MODEL:", list(MODELS.keys()))
-print("✅ DATA :", list(DATA.keys()))
-
 
 # =========================
-# CORE LOGIC
+# MAIN FUNCTION
 # =========================
 def get_response(wilayah, tahun, bulan):
     wilayah = wilayah.capitalize()
 
-    print(f"📥 Request: {wilayah} | {tahun}-{bulan}")
-
     if wilayah not in MODELS:
-        raise Exception(f"Model '{wilayah}' tidak ditemukan")
-
-    if wilayah not in DATA:
-        raise Exception(f"Data '{wilayah}' tidak ditemukan")
+        raise Exception(f"Model {wilayah} tidak ditemukan")
 
     model = MODELS[wilayah]
-    df    = DATA[wilayah]
 
     # =========================
-    # HISTORIS (≤ 2025)
+    # CHART → pakai PKL
     # =========================
-    if tahun <= 2025:
+    days = calendar.monthrange(tahun, bulan)[1]
 
-        df_hist = df[
-            (df['wilayah'] == wilayah) &
-            (df['ds'].dt.year == tahun) &
-            (df['ds'].dt.month == bulan)
-        ]
+    future = pd.date_range(
+        start=f"{tahun}-{bulan:02d}-01",
+        periods=days
+    )
 
-        print("📊 HIST:", len(df_hist))
+    future_df = pd.DataFrame({"ds": future})
 
-        if df_hist.empty:
-            raise Exception("Data historis tidak ditemukan")
+    forecast = model.predict(future_df)[["ds", "yhat"]]
 
-        chart_res = [
-            {
-                "ds": row["ds"].strftime("%Y-%m-%d"),
-                "wilayah": wilayah,
-                "curah_hujan": float(row["curah_hujan"]),
-                "tipe": "historis",
-            }
-            for _, row in df_hist.iterrows()
-        ]
+    chart_res = [
+        {
+            "ds": row["ds"].strftime("%Y-%m-%d"),
+            "wilayah": wilayah,
+            "curah_hujan": float(row["yhat"]),
+            "tipe": "prediksi"
+        }
+        for _, row in forecast.iterrows()
+    ]
 
-        avg_val = df_hist["curah_hujan"].mean()
-        max_val = df_hist["curah_hujan"].max()
-        is_prediksi = False
+    avg_val = float(forecast["yhat"].mean())
+    max_val = float(forecast["yhat"].max())
 
-    # =========================
-    # PREDIKSI (2026+)
-    # =========================
-    else:
-        days = calendar.monthrange(tahun, bulan)[1]
-
-        future = pd.date_range(
-            start=f"{tahun}-{bulan:02d}-01",
-            periods=days
-        )
-
-        forecast = model.predict(pd.DataFrame({"ds": future}))
-
-        chart_res = [
-            {
-                "ds": row["ds"].strftime("%Y-%m-%d"),
-                "wilayah": wilayah,
-                "curah_hujan": float(row["yhat"]),
-                "tipe": "prediksi",
-            }
-            for _, row in forecast.iterrows()
-        ]
-
-        avg_val = forecast["yhat"].mean()
-        max_val = forecast["yhat"].max()
-        is_prediksi = True
+    kondisi = "Basah" if avg_val > 10 else "Normal" if avg_val > 5 else "Kering"
 
     # =========================
-    # MAP
+    # MAP → pakai CSV (RINGAN)
     # =========================
     map_res = []
 
     for w, coords in KOORDINAT.items():
-        if w in MODELS:
-            model_w = MODELS[w]
+        if w in DATA:
+            df_w = DATA[w]
 
-            days = calendar.monthrange(tahun, bulan)[1]
+            df_filtered = df_w[
+                (df_w['ds'].dt.year == tahun) &
+                (df_w['ds'].dt.month == bulan)
+            ]
 
-            future = pd.date_range(
-                start=f"{tahun}-{bulan:02d}-01",
-                periods=days
-            )
-
-            fc = model_w.predict(pd.DataFrame({"ds": future}))
-            avg = float(fc["yhat"].mean())
+            avg = float(df_filtered["curah_hujan"].mean()) if not df_filtered.empty else 0
 
             map_res.append({
                 "wilayah": w,
@@ -171,8 +127,6 @@ def get_response(wilayah, tahun, bulan):
                 "is_selected": w == wilayah
             })
 
-    kondisi = "Basah" if avg_val > 10 else "Normal" if avg_val > 5 else "Kering"
-
     return {
         "chart": chart_res,
         "map": map_res,
@@ -180,11 +134,10 @@ def get_response(wilayah, tahun, bulan):
             "avg": round(avg_val, 2),
             "max": round(max_val, 2),
             "narasi": f"Wilayah {wilayah} cenderung {kondisi}",
-            "is_prediksi": is_prediksi,
+            "is_prediksi": True
         },
-        "selected_coords": KOORDINAT.get(wilayah),
+        "selected_coords": KOORDINAT.get(wilayah)
     }
-
 
 # =========================
 # API HANDLER
