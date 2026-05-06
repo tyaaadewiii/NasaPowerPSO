@@ -4,7 +4,9 @@ import pandas as pd
 import json
 import os
 
-# Koordinat pusat Kabupaten di Bali
+# =========================
+# KOORDINAT
+# =========================
 KOORDINAT = {
     'Badung':     [-8.5833, 115.1833],
     'Bangli':     [-8.2500, 115.3500],
@@ -17,50 +19,67 @@ KOORDINAT = {
     'Tabanan':    [-8.5333, 115.1167],
 }
 
+# =========================
+# LOAD CSV
+# =========================
 def load_data():
-    # File CSV diletakkan di folder /api/data/
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    csv_path = os.path.join(base_dir, 'data', 'Skripsi_PSO.csv')
+    csv_path = os.path.join(base_dir, '../data/Skripsi_PSO.csv')
     df = pd.read_csv(csv_path)
-    df['ds'] = pd.to_datetime(df['ds'])
+    df['ds'] = pd.to_datetime(df['ds'], errors='coerce')
+
+    df['wilayah'] = df['wilayah'].astype(str).str.strip()
+    df['tipe'] = df['tipe'].astype(str).str.lower().str.strip()
+
     return df
 
+# =========================
+# LOGIC
+# =========================
 def get_response(wilayah, tahun, bulan):
     df = load_data()
+
+    wilayah = wilayah.strip()
 
     mask = (df['ds'].dt.year == tahun) & (df['ds'].dt.month == bulan)
     df_period = df[mask]
 
-    chart_df = df_period[df_period['wilayah'] == wilayah].sort_values('ds')
+    # FIX FILTER (case insensitive)
+    chart_df = df_period[
+        df_period['wilayah'].str.lower() == wilayah.lower()
+    ].sort_values('ds')
 
-    # Konversi datetime ke string agar bisa di-JSON-kan
     chart_res = []
     for _, row in chart_df.iterrows():
         chart_res.append({
             'ds': row['ds'].strftime('%Y-%m-%d'),
             'wilayah': row['wilayah'],
-            'curah_hujan': float(row['curah_hujan']),
+            'curah_hujan': max(0, float(row['curah_hujan'])),  
             'tipe': row['tipe'],
         })
 
-    avg_val = float(chart_df['curah_hujan'].mean()) if not chart_df.empty else 0
-    max_val = float(chart_df['curah_hujan'].max()) if not chart_df.empty else 0
+    avg_val = max(0, float(chart_df['curah_hujan'].mean())) if not chart_df.empty else 0
+    max_val = max(0, float(chart_df['curah_hujan'].max())) if not chart_df.empty else 0
     is_prediksi = (chart_df['tipe'].iloc[0] == 'prediksi') if not chart_df.empty else False
 
     kondisi = 'Basah' if avg_val > 10 else 'Normal' if avg_val > 5 else 'Kering'
     narasi = f'Wilayah {wilayah} pada periode ini cenderung {kondisi} dengan rata-rata harian {avg_val:.2f} mm.'
 
-    map_stats = df_period.groupby('wilayah').agg({'curah_hujan': 'mean'}).reset_index()
+    # =========================
+    # MAP
+    # =========================
+    map_stats = df_period.groupby('wilayah')['curah_hujan'].mean().reset_index()
+
     map_res = []
     for _, row in map_stats.iterrows():
         w = row['wilayah']
         if w in KOORDINAT:
             map_res.append({
                 'wilayah': w,
-                'curah_hujan': round(float(row['curah_hujan']), 2),
+                'curah_hujan': round(max(0, float(row['curah_hujan'])), 2),
                 'lat': KOORDINAT[w][0],
                 'lng': KOORDINAT[w][1],
-                'is_selected': w == wilayah,
+                'is_selected': w.lower() == wilayah.lower(),
             })
 
     return {
@@ -75,7 +94,9 @@ def get_response(wilayah, tahun, bulan):
         'selected_coords': KOORDINAT.get(wilayah, [-8.4095, 115.1889]),
     }
 
-
+# =========================
+# HANDLER VERCEL
+# =========================
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -89,8 +110,8 @@ class handler(BaseHTTPRequestHandler):
         params = parse_qs(parsed.query)
 
         wilayah = params.get('wilayah', ['Badung'])[0]
-        tahun   = int(params.get('tahun',  ['2025'])[0])
-        bulan   = int(params.get('bulan',  ['1'])[0])
+        tahun   = int(params.get('tahun', ['2025'])[0])
+        bulan   = int(params.get('bulan', ['1'])[0])
 
         try:
             result = get_response(wilayah, tahun, bulan)

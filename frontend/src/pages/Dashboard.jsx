@@ -94,7 +94,11 @@ function getRainfallTier(val) {
 }
 
 function toChartPoint(row) {
-  return { hari: new Date(row.ds).getDate(), curah_hujan: row.curah_hujan };
+  const val = parseFloat(row.curah_hujan) || 0;
+  return {
+    hari: new Date(row.ds).getDate(),
+    curah_hujan: Math.max(0, val), // 🔥 anti minus
+  };
 }
 
 
@@ -518,16 +522,16 @@ function ChartSection({ chartData, bulanIndex, tahun, wilayah, summary, tier }) 
                 <stop offset="100%" stopColor={tier.color} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="2 5" stroke="#0c2040" vertical={false} />
+            <CartesianGrid strokeDasharray="3 6" stroke="#94a3b8" opacity={0.3} vertical={false} />
             <XAxis dataKey="hari" tick={{ fontSize: 10, fill: '#334155', fontFamily: "'DM Sans',sans-serif" }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 10, fill: '#f0f5fa', fontFamily: "'DM Sans',sans-serif" }} axisLine={false} tickLine={false} unit=" mm" />
+            <YAxis domain={[0, 'auto']} tick={{ fontSize: 10, fill: '#000000', fontFamily: "'DM Sans',sans-serif" }} axisLine={false} tickLine={false} unit=" mm" />
             <ReferenceLine
               y={summary?.avg} stroke={tier.color} strokeDasharray="4 4" strokeOpacity={0.45}
               label={{ value: `avg ${summary?.avg}mm`, position: 'insideTopRight', fontSize: 10, fill: tier.color, fontFamily: "'Sora',sans-serif" }}
             />
             <Tooltip content={<ChartTooltip />} />
             <Area
-              type="monotone" dataKey="curah_hujan" stroke={tier.color} strokeWidth={2}
+              type="monotone" dataKey="curah_hujan" stroke={tier.color} strokeWidth={2.5}
               fill="url(#chartGradient)"
               dot={({ cx, cy, payload }) => {
                 const dotTier = getRainfallTier(payload.curah_hujan);
