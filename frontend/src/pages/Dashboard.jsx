@@ -97,9 +97,6 @@ function toChartPoint(row) {
   return { hari: new Date(row.ds).getDate(), curah_hujan: row.curah_hujan };
 }
 
-function fixZero(val) {
-  return val < 0 ? 0 : val;
-}
 
 // ─────────────────────────────────────────────────────────
 // SECTION 4 — GLOBAL CSS
@@ -191,7 +188,7 @@ function ChangeView({ center }) {
 
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
-  const value = fixZero(payload[0]?.value ?? 0);
+  const value = payload[0]?.value ?? 0;
   const tier  = getRainfallTier(value);
   return (
     <div style={{
@@ -261,7 +258,7 @@ function Navbar() {
     <nav style={{
       background: '#0d203c', padding: '0 16px', height: 52,
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      position: 'fixed', top: 0, left: 0, width: '100%', zIndex: 9999,
+      position: 'sticky', top: 0, zIndex: 200,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{
@@ -460,7 +457,7 @@ function MapSection({ latlng, wilayah, avgVal, tier }) {
           {tier.label} · {avgVal} mm
         </span>
       </div>
-      <div style={{ height: '420px' }}>
+      <div style={{ height: '380px' }}>
         <MapContainer
           center={[-8.45, 115.2]} zoom={10} minZoom={9} maxZoom={12}
           maxBounds={MAP_BOUNDS} maxBoundsViscosity={1.0}
@@ -477,7 +474,7 @@ function MapSection({ latlng, wilayah, avgVal, tier }) {
               <div style={{
                 background: '#ffffff', padding: '8px 12px', borderRadius: 10,
                 textAlign: 'center', border: `1px solid ${tier.color}55`,
-                boxShadow: '0 2px 12px rgba(0,0,0,0.25)',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
               }}>
                 <div style={{ fontWeight: 700 }}>{wilayah}</div>
                 <div style={{ color: tier.color, fontWeight: 800, fontSize: 14 }}>{avgVal} mm</div>
@@ -496,7 +493,7 @@ function MapSection({ latlng, wilayah, avgVal, tier }) {
   );
 }
 
-function ChartSection({ chartData, bulanIndex, tahun, wilayah, summary, tier, maxY }) {
+function ChartSection({ chartData, bulanIndex, tahun, wilayah, summary, tier }) {
   return (
     <div style={{
       background: '#ffffff', border: '1px solid #0e2040',
@@ -523,11 +520,10 @@ function ChartSection({ chartData, bulanIndex, tahun, wilayah, summary, tier, ma
             </defs>
             <CartesianGrid strokeDasharray="2 5" stroke="#0c2040" vertical={false} />
             <XAxis dataKey="hari" tick={{ fontSize: 10, fill: '#334155', fontFamily: "'DM Sans',sans-serif" }} axisLine={false} tickLine={false} />
-            <YAxis domain={[0, maxY]} allowDecimals={false} tickFormatter={(value) => value.toFixed(0)} tick={{ fontSize: 10, fill: '#000000', fontFamily: "'DM Sans',sans-serif" }} 
-              axisLine={false} tickLine={false} unit=" mm" />
+            <YAxis tick={{ fontSize: 10, fill: '#f0f5fa', fontFamily: "'DM Sans',sans-serif" }} axisLine={false} tickLine={false} unit=" mm" />
             <ReferenceLine
-              y={fixZero(summary?.avg)} stroke={tier.color} strokeDasharray="4 4" strokeOpacity={0.45}
-              label={{ value: `avg ${fixZero(summary?.avg)} mm`, position: 'insideTopRight', fontSize: 10, fill: tier.color, fontFamily: "'Sora',sans-serif" }}
+              y={summary?.avg} stroke={tier.color} strokeDasharray="4 4" strokeOpacity={0.45}
+              label={{ value: `avg ${summary?.avg}mm`, position: 'insideTopRight', fontSize: 10, fill: tier.color, fontFamily: "'Sora',sans-serif" }}
             />
             <Tooltip content={<ChartTooltip />} />
             <Area
@@ -699,18 +695,22 @@ const Dashboard = () => {
     try {
       const { wilayah, tahun, bulan } = query;
 
-      const res = await fetch(
-        `/api/rainfall?wilayah=${wilayah}&tahun=${tahun}&bulan=${bulan}`
-      );
+      const res = await fetch(`/api/rainfall?wilayah=${wilayah}&tahun=${tahun}&bulan=${bulan}`);
 
+      // 🔥 TAMBAHAN PENTING
       if (!res.ok) {
         throw new Error("Response tidak OK");
       }
 
-      const json = await res.json(); 
-      console.log("DATA API:", json);
+      const text = await res.text();
 
-      setData(json); 
+      if (text.startsWith("<")) {
+        console.error("API RETURN HTML:", text);
+        throw new Error("API salah (return HTML, bukan JSON)");
+      }
+
+      const json = JSON.parse(text);
+      setData(json);
 
     } catch (err) {
       console.error('[Dashboard] Gagal memuat data:', err);
@@ -720,22 +720,17 @@ const Dashboard = () => {
   };
 
   useEffect(() => { fetchData(); }, [query]);
-  useEffect(() => { console.log("STATE DATA:", data);}, [data]);
 
   const toNumber = (v) => parseFloat(String(v).replace(',', '.').trim()) || 0;
 
-  const avgValNum = fixZero(toNumber(data.summary?.avg));
-  const maxValNum = fixZero(toNumber(data.summary?.max));
-  const maxY = Math.max(20, Math.ceil(maxValNum / 5) * 5);
+  const avgValNum = toNumber(data.summary?.avg);
+  const maxValNum = toNumber(data.summary?.max);
 
   const avgTier = getRainfallTier(avgValNum);
   const maxTier = getRainfallTier(maxValNum);
   const latlng    = WILAYAH_COORDS[query.wilayah];
-  const chartData = (data.chart ?? []).map(row => ({
-    hari: new Date(row.ds).getDate(),
-    curah_hujan: fixZero(toNumber(row.curah_hujan)),
-  }));
- 
+  const chartData = (data.chart ?? []).map(toChartPoint);
+
   const handleInputChange = (key, value) => setInput(prev => ({ ...prev, [key]: value }));
 
   return (
@@ -743,9 +738,7 @@ const Dashboard = () => {
       <style>{GLOBAL_CSS}</style>
       <div style={{ fontFamily: "'DM Sans', sans-serif", background: '#ffffff', minHeight: '100vh', color: '#1e293b' }}>
 
-      <Navbar />
-
-      <div style={{ paddingTop: '60px' }}>
+        <Navbar />
 
         <TopPanel
           input={input}
@@ -759,7 +752,7 @@ const Dashboard = () => {
         />
 
         {/* Peta + Chart */}
-        <div className="map-chart-section" style={{ width: '100%', padding: '20px 16px 0', marginTop: '12px', boxSizing: 'border-box' }}>
+        <div className="map-chart-section" style={{ width: '100%', padding: '16px 16px 0', boxSizing: 'border-box' }}>
           <div
             className="main-content-grid"
             style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}
@@ -772,7 +765,6 @@ const Dashboard = () => {
               wilayah={query.wilayah}
               summary={data.summary}
               tier={avgTier}
-              maxY={maxY}
             />
           </div>
         </div>
@@ -780,7 +772,6 @@ const Dashboard = () => {
         <InfoBali />
 
       </div>
-    </div>
     </>
   );
 };
