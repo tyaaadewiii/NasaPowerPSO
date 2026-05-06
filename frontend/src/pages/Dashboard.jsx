@@ -97,6 +97,9 @@ function toChartPoint(row) {
   return { hari: new Date(row.ds).getDate(), curah_hujan: row.curah_hujan };
 }
 
+function fixZero(val) {
+  return val < 0 ? 0 : val;
+}
 
 // ─────────────────────────────────────────────────────────
 // SECTION 4 — GLOBAL CSS
@@ -188,7 +191,7 @@ function ChangeView({ center }) {
 
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
-  const value = payload[0]?.value ?? 0;
+  const value = fixZero(payload[0]?.value ?? 0);
   const tier  = getRainfallTier(value);
   return (
     <div style={{
@@ -523,8 +526,8 @@ function ChartSection({ chartData, bulanIndex, tahun, wilayah, summary, tier, ma
             <YAxis domain={[0, maxY]} allowDecimals={false} tickFormatter={(value) => value.toFixed(0)} tick={{ fontSize: 10, fill: '#000000', fontFamily: "'DM Sans',sans-serif" }} 
               axisLine={false} tickLine={false} unit=" mm" />
             <ReferenceLine
-              y={summary?.avg} stroke={tier.color} strokeDasharray="4 4" strokeOpacity={0.45}
-              label={{ value: `avg ${summary?.avg}mm`, position: 'insideTopRight', fontSize: 10, fill: tier.color, fontFamily: "'Sora',sans-serif" }}
+              y={fixZero(summary?.avg)} stroke={tier.color} strokeDasharray="4 4" strokeOpacity={0.45}
+              label={{ value: `avg ${fixZero(summary?.avg)} mm`, position: 'insideTopRight', fontSize: 10, fill: tier.color, fontFamily: "'Sora',sans-serif" }}
             />
             <Tooltip content={<ChartTooltip />} />
             <Area
@@ -696,20 +699,18 @@ const Dashboard = () => {
     try {
       const { wilayah, tahun, bulan } = query;
 
-      const res = await fetch(`https://your-app.up.railway.app/api/rainfall?wilayah=${wilayah}&tahun=${tahun}&bulan=${bulan}`);
+      const res = await fetch(
+        `/api/rainfall?wilayah=${wilayah}&tahun=${tahun}&bulan=${bulan}`
+      );
+
       if (!res.ok) {
         throw new Error("Response tidak OK");
       }
 
-      const text = await res.text();
+      const json = await res.json(); 
+      console.log("DATA API:", json);
 
-      if (text.startsWith("<")) {
-        console.error("API RETURN HTML:", text);
-        throw new Error("API salah (return HTML, bukan JSON)");
-      }
-
-      const json = JSON.parse(text);
-      setData(json);
+      setData(json); 
 
     } catch (err) {
       console.error('[Dashboard] Gagal memuat data:', err);
@@ -719,17 +720,21 @@ const Dashboard = () => {
   };
 
   useEffect(() => { fetchData(); }, [query]);
+  useEffect(() => { console.log("STATE DATA:", data);}, [data]);
 
   const toNumber = (v) => parseFloat(String(v).replace(',', '.').trim()) || 0;
 
-  const avgValNum = toNumber(data.summary?.avg);
-  const maxValNum = toNumber(data.summary?.max);
+  const avgValNum = fixZero(toNumber(data.summary?.avg));
+  const maxValNum = fixZero(toNumber(data.summary?.max));
   const maxY = Math.max(20, Math.ceil(maxValNum / 5) * 5);
 
   const avgTier = getRainfallTier(avgValNum);
   const maxTier = getRainfallTier(maxValNum);
   const latlng    = WILAYAH_COORDS[query.wilayah];
-  const chartData = (data.chart ?? []).map(toChartPoint);
+  const chartData = (data.chart ?? []).map(row => ({
+    hari: new Date(row.ds).getDate(),
+    curah_hujan: fixZero(toNumber(row.curah_hujan)),
+  }));
  
   const handleInputChange = (key, value) => setInput(prev => ({ ...prev, [key]: value }));
 

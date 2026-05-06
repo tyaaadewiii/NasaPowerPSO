@@ -82,8 +82,22 @@ def init_data():
 # =========================
 # LOGIC
 # =========================
+FORCE_PREDICT_YEAR = 2025
+
 def get_response(wilayah, tahun, bulan):
     wilayah = wilayah.capitalize()
+
+    # =========================
+    # CEK HISTORI
+    # =========================
+    df_filtered = DF[
+        (DF['wilayah'] == wilayah) &
+        (DF['ds'].dt.year == tahun) &
+        (DF['ds'].dt.month == bulan)
+    ]
+
+    # LOGIC FINAL
+    use_historis = (not df_filtered.empty) and (tahun <= FORCE_PREDICT_YEAR)
 
     if wilayah not in MODELS:
         raise Exception(f"Model {wilayah} tidak ditemukan")
@@ -95,13 +109,7 @@ def get_response(wilayah, tahun, bulan):
     # =========================
     # HISTORIS
     # =========================
-    if tahun <= LAST_YEAR:
-        df_filtered = DF[
-            (DF['wilayah'] == wilayah) &
-            (DF['ds'].dt.year == tahun) &
-            (DF['ds'].dt.month == bulan)
-        ]
-
+    if use_historis:
         chart = [
             {
                 "ds": row["ds"].strftime("%Y-%m-%d"),
@@ -112,12 +120,11 @@ def get_response(wilayah, tahun, bulan):
             for _, row in df_filtered.iterrows()
         ]
 
-        if not df_filtered.empty:
-            avg = float(df_filtered["curah_hujan"].mean())
-            max_val = float(df_filtered["curah_hujan"].max())
+        avg = float(df_filtered["curah_hujan"].mean())
+        max_val = float(df_filtered["curah_hujan"].max())
 
     # =========================
-    # PREDIKSI
+    # PREDIKSI (PKL)
     # =========================
     else:
         model = MODELS[wilayah]
@@ -145,6 +152,9 @@ def get_response(wilayah, tahun, bulan):
         avg = float(forecast["yhat"].mean())
         max_val = float(forecast["yhat"].max())
 
+    # =========================
+    # KATEGORI
+    # =========================
     kondisi = "Basah" if avg > 10 else "Normal" if avg > 5 else "Kering"
 
     # =========================
@@ -159,7 +169,24 @@ def get_response(wilayah, tahun, bulan):
             (DF['ds'].dt.month == bulan)
         ]
 
-        avg_w = df_w["curah_hujan"].mean() if not df_w.empty else 0
+        # LOGIC MAP SAMA
+        if not df_w.empty and tahun <= FORCE_PREDICT_YEAR:
+            avg_w = df_w["curah_hujan"].mean()
+        else:
+            if w in MODELS:
+                model = MODELS[w]
+                days = calendar.monthrange(tahun, bulan)[1]
+
+                future = pd.date_range(
+                    start=f"{tahun}-{bulan:02d}-01",
+                    periods=days
+                )
+
+                future_df = pd.DataFrame({"ds": future})
+                forecast = model.predict(future_df)
+                avg_w = forecast["yhat"].mean()
+            else:
+                avg_w = 0
 
         map_res.append({
             "wilayah": w,
@@ -169,6 +196,9 @@ def get_response(wilayah, tahun, bulan):
             "is_selected": w == wilayah
         })
 
+    # =========================
+    # RETURN
+    # =========================
     return {
         "chart": chart,
         "map": map_res,
@@ -176,7 +206,7 @@ def get_response(wilayah, tahun, bulan):
             "avg": round(avg, 2),
             "max": round(max_val, 2),
             "narasi": f"Wilayah {wilayah} cenderung {kondisi}",
-            "is_prediksi": tahun > LAST_YEAR
+            "is_prediksi": not use_historis
         },
         "selected_coords": KOORDINAT[wilayah]
     }
