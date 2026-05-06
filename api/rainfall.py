@@ -192,6 +192,8 @@ def handler(request):
         tahun   = int(qs.get("tahun", [2026])[0])
         bulan   = int(qs.get("bulan", [1])[0])
 
+        init_data()  # 🔥 INI YANG KURANG
+
         return {
             "statusCode": 200,
             "headers": {
@@ -206,7 +208,7 @@ def handler(request):
             "statusCode": 500,
             "body": json.dumps({"error": str(e)})
         }
-
+    
 # =========================
 # FASTAPI LOCAL
 # =========================
