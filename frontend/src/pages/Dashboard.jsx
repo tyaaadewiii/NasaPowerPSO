@@ -524,7 +524,7 @@ function ChartSection({ chartData, bulanIndex, tahun, wilayah, summary, tier }) 
             </defs>
             <CartesianGrid strokeDasharray="3 6" stroke="#94a3b8" opacity={0.3} vertical={false} />
             <XAxis dataKey="hari" tick={{ fontSize: 10, fill: '#334155', fontFamily: "'DM Sans',sans-serif" }} axisLine={false} tickLine={false} />
-            <YAxis domain={[0, 'auto']} tick={{ fontSize: 10, fill: '#000000', fontFamily: "'DM Sans',sans-serif" }} axisLine={false} tickLine={false} unit=" mm" />
+            <YAxis domain={[0, domainMax]} ticks={ticks}  tick={{ fontSize: 10, fill: '#000000', fontFamily: "'DM Sans',sans-serif" }} axisLine={false} tickLine={false} unit=" mm" />
             <ReferenceLine
               y={summary?.avg} stroke={tier.color} strokeDasharray="4 4" strokeOpacity={0.45}
               label={{ value: `avg ${summary?.avg}mm`, position: 'insideTopRight', fontSize: 10, fill: tier.color, fontFamily: "'Sora',sans-serif" }}
