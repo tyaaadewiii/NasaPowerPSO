@@ -498,6 +498,27 @@ function MapSection({ latlng, wilayah, avgVal, tier }) {
 }
 
 function ChartSection({ chartData, bulanIndex, tahun, wilayah, summary, tier }) {
+  const maxVal = Math.max(...chartData.map(d => d.curah_hujan || 0));
+
+  let domainMax;
+  let ticks;
+
+  if (maxVal <= 10) {
+    domainMax = 10;
+    ticks = [0, 2, 4, 6, 8, 10];
+  } else if (maxVal <= 20) {
+    domainMax = 20;
+    ticks = [0, 5, 10, 15, 20];
+  } else if (maxVal <= 50) {
+    domainMax = 50;
+    ticks = [0, 10, 20, 30, 40, 50];
+  } else if (maxVal <= 100) {
+    domainMax = 100;
+    ticks = [0, 20, 40, 60, 80, 100];
+  } else {
+    domainMax = 200;
+    ticks = [0, 50, 100, 150, 200];
+  }
   return (
     <div style={{
       background: '#ffffff', border: '1px solid #0e2040',
