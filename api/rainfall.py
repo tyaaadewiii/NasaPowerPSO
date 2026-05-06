@@ -1,3 +1,4 @@
+from urllib.parse import parse_qs
 import pandas as pd
 import os
 import pickle
@@ -153,9 +154,11 @@ def get_response(wilayah, tahun, bulan):
 # =========================
 def handler(request):
     try:
-        wilayah = request.args.get("wilayah", "Badung")
-        tahun   = int(request.args.get("tahun", 2026))
-        bulan   = int(request.args.get("bulan", 1))
+        qs = parse_qs(request.query)
+
+        wilayah = qs.get("wilayah", ["Badung"])[0]
+        tahun   = int(qs.get("tahun", [2026])[0])
+        bulan   = int(qs.get("bulan", [1])[0])
 
         result = get_response(wilayah, tahun, bulan)
 
@@ -173,10 +176,6 @@ def handler(request):
 
         return {
             "statusCode": 500,
-            "headers": {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*"
-            },
             "body": json.dumps({"error": str(e)})
         }
 
