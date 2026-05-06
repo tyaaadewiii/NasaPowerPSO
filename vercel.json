@@ -1,6 +1,6 @@
 {
   "functions": {
-    "api/rainfall.py": {
+    "rainfall.py": {
       "runtime": "python3.11",
       "maxDuration": 30
     }
