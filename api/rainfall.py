@@ -1,4 +1,6 @@
 from urllib.parse import parse_qs
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import os
 import pickle
@@ -20,17 +22,17 @@ KOORDINAT = {
     'Tabanan': [-8.5333, 115.1167],
 }
 
+BASE_DIR = os.path.dirname(__file__)
+
 # =========================
 # LOAD MODEL (PKL)
 # =========================
 def load_models():
-    base_dir = os.path.dirname(__file__)
-    model_dir = os.path.join(base_dir, 'models')
-
+    model_dir = os.path.join(BASE_DIR, 'models')
     models = {}
 
     if not os.path.exists(model_dir):
-        print("⚠️ Folder models tidak ditemukan:", model_dir)
+        print("⚠️ Folder models tidak ditemukan")
         return models
 
     for file in os.listdir(model_dir):
@@ -39,42 +41,32 @@ def load_models():
             with open(os.path.join(model_dir, file), "rb") as f:
                 models[wilayah] = pickle.load(f)
 
-    print("✅ Models loaded:", list(models.keys()))
+    print("✅ Models:", list(models.keys()))
     return models
 
-
 # =========================
-# LOAD DATA CSV
+# LOAD CSV
 # =========================
 def load_data():
-    base_dir = os.path.dirname(__file__)
-    csv_path = os.path.join(base_dir, 'data', 'Skripsi_PSO.csv')
+    csv_path = os.path.join(BASE_DIR, 'data', 'Skripsi_PSO.csv')
 
     if not os.path.exists(csv_path):
-        print("⚠️ CSV tidak ditemukan:", csv_path)
-        return {}
+        print("⚠️ CSV tidak ditemukan")
+        return pd.DataFrame()
 
     df = pd.read_csv(csv_path)
     df['ds'] = pd.to_datetime(df['ds'])
     df['wilayah'] = df['wilayah'].str.capitalize()
 
-    data_dict = {}
-    for w in df['wilayah'].unique():
-        data_dict[w] = df[df['wilayah'] == w]
-
-    print("✅ CSV loaded:", list(data_dict.keys()))
-    return data_dict
-
+    print("✅ CSV loaded:", df['wilayah'].unique())
+    return df
 
 # =========================
-# GLOBAL LOAD (1x saja)
+# GLOBAL LOAD
 # =========================
 MODELS = load_models()
-DATA   = load_data()
-
-print("📊 DATA:", list(DATA.keys()))
-print("🤖 MODELS:", list(MODELS.keys()))
-
+DF = load_data()
+LAST_YEAR = DF[DF['ds'].dt.year <= 2025]['ds'].dt.year.max()
 
 # =========================
 # MAIN LOGIC
@@ -85,72 +77,105 @@ def get_response(wilayah, tahun, bulan):
     if wilayah not in MODELS:
         raise Exception(f"Model {wilayah} tidak ditemukan")
 
-    model = MODELS[wilayah]
+    # INIT AMAN
+    avg = 0
+    max_val = 0
+    chart = []
 
-    # ===== CHART (PKL) =====
-    days = calendar.monthrange(tahun, bulan)[1]
+    # =========================
+    # HISTORIS
+    # =========================
+    if tahun <= LAST_YEAR:
+        df_filtered = DF[
+            (DF['wilayah'] == wilayah) &
+            (DF['ds'].dt.year == tahun) &
+            (DF['ds'].dt.month == bulan)
+        ]
 
-    future = pd.date_range(
-        start=f"{tahun}-{bulan:02d}-01",
-        periods=days
-    )
+        chart = [
+            {
+                "ds": row["ds"].strftime("%Y-%m-%d"),
+                "curah_hujan": float(row["curah_hujan"]),
+                "wilayah": wilayah,
+                "tipe": "historis"
+            }
+            for _, row in df_filtered.iterrows()
+        ]
 
-    future_df = pd.DataFrame({"ds": future})
+        if not df_filtered.empty:
+            avg = float(df_filtered["curah_hujan"].mean())
+            max_val = float(df_filtered["curah_hujan"].max())
 
-    forecast = model.predict(future_df)[["ds", "yhat"]]
+    # =========================
+    # PREDIKSI
+    # =========================
+    else:
+        model = MODELS[wilayah]
 
-    chart_res = [
-        {
-            "ds": row["ds"].strftime("%Y-%m-%d"),
-            "wilayah": wilayah,
-            "curah_hujan": float(row["yhat"]),
-            "tipe": "prediksi"
-        }
-        for _, row in forecast.iterrows()
-    ]
+        days = calendar.monthrange(tahun, bulan)[1]
 
-    avg_val = float(forecast["yhat"].mean())
-    max_val = float(forecast["yhat"].max())
+        future = pd.date_range(
+            start=f"{tahun}-{bulan:02d}-01",
+            periods=days
+        )
 
-    kondisi = "Basah" if avg_val > 10 else "Normal" if avg_val > 5 else "Kering"
+        future_df = pd.DataFrame({"ds": future})
+        forecast = model.predict(future_df)[["ds", "yhat"]]
 
-    # ===== MAP (CSV) =====
+        chart = [
+            {
+                "ds": row["ds"].strftime("%Y-%m-%d"),
+                "curah_hujan": float(row["yhat"]),
+                "wilayah": wilayah,
+                "tipe": "prediksi"
+            }
+            for _, row in forecast.iterrows()
+        ]
+
+        avg = float(forecast["yhat"].mean())
+        max_val = float(forecast["yhat"].max())
+
+    kondisi = "Basah" if avg > 10 else "Normal" if avg > 5 else "Kering"
+
+    # =========================
+    # MAP
+    # =========================
     map_res = []
 
     for w, coords in KOORDINAT.items():
-        if w in DATA:
-            df_w = DATA[w]
+        df_w = DF[
+            (DF['wilayah'] == w) &
+            (DF['ds'].dt.year == tahun) &
+            (DF['ds'].dt.month == bulan)
+        ]
 
-            df_filtered = df_w[
-                (df_w['ds'].dt.year == tahun) &
-                (df_w['ds'].dt.month == bulan)
-            ]
+        avg_w = df_w["curah_hujan"].mean() if not df_w.empty else 0
 
-            avg = float(df_filtered["curah_hujan"].mean()) if not df_filtered.empty else 0
-
-            map_res.append({
-                "wilayah": w,
-                "curah_hujan": round(avg, 2),
-                "lat": coords[0],
-                "lng": coords[1],
-                "is_selected": w == wilayah
-            })
+        map_res.append({
+            "wilayah": str(w),
+            "curah_hujan": float(round(avg_w, 2)) if avg_w else 0.0,
+            "lat": float(coords[0]),
+            "lng": float(coords[1]),
+            "is_selected": True if w == wilayah else False
+        })
 
     return {
-        "chart": chart_res,
+        "chart": chart,
         "map": map_res,
         "summary": {
-            "avg": round(avg_val, 2),
-            "max": round(max_val, 2),
-            "narasi": f"Wilayah {wilayah} cenderung {kondisi}",
-            "is_prediksi": True
+            "avg": float(round(avg, 2)),
+            "max": float(round(max_val, 2)),
+            "narasi": str(f"Wilayah {wilayah} cenderung {kondisi}"),
+            "is_prediksi": True if tahun > LAST_YEAR else False
         },
-        "selected_coords": KOORDINAT.get(wilayah)
+        "selected_coords": [
+            float(KOORDINAT[wilayah][0]),
+            float(KOORDINAT[wilayah][1])
+        ]
     }
 
-
 # =========================
-# VERCEL HANDLER (WAJIB)
+# VERCEL HANDLER
 # =========================
 def handler(request):
     try:
@@ -166,12 +191,7 @@ def handler(request):
                 "Content-Type": "application/json",
                 "Access-Control-Allow-Origin": "*"
             },
-            "body": json.dumps({
-                "test": "API HIDUP",
-                "wilayah": wilayah,
-                "tahun": tahun,
-                "bulan": bulan
-            })
+            "body": json.dumps(get_response(wilayah, tahun, bulan))
         }
 
     except Exception as e:
@@ -180,16 +200,19 @@ def handler(request):
             "body": json.dumps({"error": str(e)})
         }
 
+# =========================
+# FASTAPI LOCAL
+# =========================
+app = FastAPI()
 
-if __name__ == "__main__":
-    print("\n=== TEST LOCAL ===")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-    try:
-        res = get_response("Badung", 2026, 1)
-
-        print("✔ Chart:", len(res["chart"]))
-        print("✔ Map:", len(res["map"]))
-        print("✔ Summary:", res["summary"])
-
-    except Exception as e:
-        print("❌ ERROR LOCAL:", e)
+@app.get("/api/rainfall")
+def api(wilayah: str = "Badung", tahun: int = 2026, bulan: int = 1):
+    return get_response(wilayah, tahun, bulan)
