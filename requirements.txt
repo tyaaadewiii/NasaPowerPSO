@@ -1,0 +1,6 @@
+pandas
+numpy
+fastapi
+uvicorn
+prophet==1.1.5
+cmdstanpy==1.2.0
