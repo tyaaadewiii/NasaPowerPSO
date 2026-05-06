@@ -696,7 +696,7 @@ const Dashboard = () => {
     try {
       const { wilayah, tahun, bulan } = query;
 
-      const res = await fetch(`http://localhost:8000/api/rainfall?wilayah=${wilayah}&tahun=${tahun}&bulan=${bulan}`);
+      const res = await fetch(`https://your-app.up.railway.app/api/rainfall?wilayah=${wilayah}&tahun=${tahun}&bulan=${bulan}`);
       if (!res.ok) {
         throw new Error("Response tidak OK");
       }
