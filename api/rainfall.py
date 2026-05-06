@@ -185,29 +185,10 @@ def get_response(wilayah, tahun, bulan):
 # VERCEL HANDLER
 # =========================
 def handler(request):
-    try:
-        qs = parse_qs(request.query)
-
-        wilayah = qs.get("wilayah", ["Badung"])[0]
-        tahun   = int(qs.get("tahun", [2026])[0])
-        bulan   = int(qs.get("bulan", [1])[0])
-
-        init_data()  # 🔥 INI YANG KURANG
-
-        return {
-            "statusCode": 200,
-            "headers": {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*"
-            },
-            "body": json.dumps(get_response(wilayah, tahun, bulan))
-        }
-
-    except Exception as e:
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
-        }
+    return {
+        "statusCode": 200,
+        "body": "OK VERCEL"
+    }
     
 # =========================
 # FASTAPI LOCAL
