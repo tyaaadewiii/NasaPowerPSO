@@ -160,20 +160,21 @@ def handler(request):
         tahun   = int(qs.get("tahun", [2026])[0])
         bulan   = int(qs.get("bulan", [1])[0])
 
-        result = get_response(wilayah, tahun, bulan)
-
         return {
             "statusCode": 200,
             "headers": {
                 "Content-Type": "application/json",
                 "Access-Control-Allow-Origin": "*"
             },
-            "body": json.dumps(result)
+            "body": json.dumps({
+                "test": "API HIDUP",
+                "wilayah": wilayah,
+                "tahun": tahun,
+                "bulan": bulan
+            })
         }
 
     except Exception as e:
-        print("❌ ERROR:", str(e))
-
         return {
             "statusCode": 500,
             "body": json.dumps({"error": str(e)})
