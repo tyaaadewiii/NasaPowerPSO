@@ -64,8 +64,8 @@ def load_data():
 # =========================
 # GLOBAL LOAD
 # =========================
-MODELS = load_models()
-DF = load_data()
+MODELS = None
+DF = None
 LAST_YEAR = 2025
 def init_data():
     global MODELS, DF
