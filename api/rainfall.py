@@ -1,11 +1,16 @@
-from urllib.parse import parse_qs
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import pandas as pd
 import os
 import pickle
 import calendar
-import json
+
+# =========================
+# KONFIG
+# =========================
+BASE_DIR = os.path.dirname(__file__)
+LAST_YEAR = 2025
 
 # =========================
 # KOORDINAT
@@ -22,17 +27,15 @@ KOORDINAT = {
     'Tabanan': [-8.5333, 115.1167],
 }
 
-BASE_DIR = os.path.dirname(__file__)
-
 # =========================
-# LOAD MODEL (PKL)
+# LOAD MODEL
 # =========================
 def load_models():
     model_dir = os.path.join(BASE_DIR, 'models')
     models = {}
 
     if not os.path.exists(model_dir):
-        print("⚠️ Folder models tidak ditemukan")
+        print("⚠️ models tidak ditemukan")
         return models
 
     for file in os.listdir(model_dir):
@@ -58,15 +61,15 @@ def load_data():
     df['ds'] = pd.to_datetime(df['ds'])
     df['wilayah'] = df['wilayah'].str.capitalize()
 
-    print("✅ CSV loaded:", df['wilayah'].unique())
+    print("✅ CSV loaded")
     return df
 
 # =========================
-# GLOBAL LOAD
+# INIT GLOBAL
 # =========================
 MODELS = None
 DF = None
-LAST_YEAR = 2025
+
 def init_data():
     global MODELS, DF
 
@@ -75,8 +78,9 @@ def init_data():
 
     if DF is None:
         DF = load_data()
+
 # =========================
-# MAIN LOGIC
+# LOGIC
 # =========================
 def get_response(wilayah, tahun, bulan):
     wilayah = wilayah.capitalize()
@@ -84,10 +88,9 @@ def get_response(wilayah, tahun, bulan):
     if wilayah not in MODELS:
         raise Exception(f"Model {wilayah} tidak ditemukan")
 
-    # INIT AMAN
+    chart = []
     avg = 0
     max_val = 0
-    chart = []
 
     # =========================
     # HISTORIS
@@ -159,39 +162,27 @@ def get_response(wilayah, tahun, bulan):
         avg_w = df_w["curah_hujan"].mean() if not df_w.empty else 0
 
         map_res.append({
-            "wilayah": str(w),
-            "curah_hujan": float(round(avg_w, 2)) if avg_w else 0.0,
-            "lat": float(coords[0]),
-            "lng": float(coords[1]),
-            "is_selected": True if w == wilayah else False
+            "wilayah": w,
+            "curah_hujan": round(float(avg_w), 2) if avg_w else 0.0,
+            "lat": coords[0],
+            "lng": coords[1],
+            "is_selected": w == wilayah
         })
 
     return {
         "chart": chart,
         "map": map_res,
         "summary": {
-            "avg": float(round(avg, 2)),
-            "max": float(round(max_val, 2)),
-            "narasi": str(f"Wilayah {wilayah} cenderung {kondisi}"),
-            "is_prediksi": True if tahun > LAST_YEAR else False
+            "avg": round(avg, 2),
+            "max": round(max_val, 2),
+            "narasi": f"Wilayah {wilayah} cenderung {kondisi}",
+            "is_prediksi": tahun > LAST_YEAR
         },
-        "selected_coords": [
-            float(KOORDINAT[wilayah][0]),
-            float(KOORDINAT[wilayah][1])
-        ]
+        "selected_coords": KOORDINAT[wilayah]
     }
 
 # =========================
-# VERCEL HANDLER
-# =========================
-def handler(request):
-    return {
-        "statusCode": 200,
-        "body": "OK VERCEL"
-    }
-    
-# =========================
-# FASTAPI LOCAL
+# FASTAPI APP
 # =========================
 app = FastAPI()
 
@@ -205,5 +196,15 @@ app.add_middleware(
 
 @app.get("/api/rainfall")
 def api(wilayah: str = "Badung", tahun: int = 2026, bulan: int = 1):
-    init_data() 
+    init_data()
     return get_response(wilayah, tahun, bulan)
+
+# =========================
+# SERVE FRONTEND
+# =========================
+from fastapi.responses import FileResponse
+
+FRONTEND_PATH = os.path.join(BASE_DIR, "../frontend/dist")
+
+if os.path.exists(FRONTEND_PATH):
+    app.mount("/", StaticFiles(directory=FRONTEND_PATH, html=True), name="frontend")
