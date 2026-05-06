@@ -23,10 +23,11 @@ KOORDINAT = {
 # LOAD CSV
 # =========================
 def load_data():
+    # File CSV diletakkan di folder /api/data/
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    csv_path = os.path.join(base_dir, '../data/Skripsi_PSO.csv')
+    csv_path = os.path.join(base_dir, 'data', 'Skripsi_PSO.csv')
     df = pd.read_csv(csv_path)
-    df['ds'] = pd.to_datetime(df['ds'], errors='coerce')
+    df['ds'] = pd.to_datetime(df['ds'])
 
     df['wilayah'] = df['wilayah'].astype(str).str.strip()
     df['tipe'] = df['tipe'].astype(str).str.lower().str.strip()
