@@ -29,7 +29,7 @@ def load_models():
     models = {}
 
     if not os.path.exists(model_dir):
-        print("⚠️ Folder models tidak ditemukan")
+        print("⚠️ Folder models tidak ditemukan:", model_dir)
         return models
 
     for file in os.listdir(model_dir):
@@ -66,13 +66,14 @@ def load_data():
 
 
 # =========================
-# GLOBAL LOAD
+# GLOBAL LOAD (1x saja)
 # =========================
 MODELS = load_models()
 DATA   = load_data()
 
-print("DATA:", DATA.keys())
-print("MODELS:", MODELS.keys())
+print("📊 DATA:", list(DATA.keys()))
+print("🤖 MODELS:", list(MODELS.keys()))
+
 
 # =========================
 # MAIN LOGIC
@@ -148,7 +149,7 @@ def get_response(wilayah, tahun, bulan):
 
 
 # =========================
-# VERCEL HANDLER
+# VERCEL HANDLER (WAJIB)
 # =========================
 def handler(request):
     try:
@@ -178,3 +179,17 @@ def handler(request):
             },
             "body": json.dumps({"error": str(e)})
         }
+
+
+if __name__ == "__main__":
+    print("\n=== TEST LOCAL ===")
+
+    try:
+        res = get_response("Badung", 2026, 1)
+
+        print("✔ Chart:", len(res["chart"]))
+        print("✔ Map:", len(res["map"]))
+        print("✔ Summary:", res["summary"])
+
+    except Exception as e:
+        print("❌ ERROR LOCAL:", e)
