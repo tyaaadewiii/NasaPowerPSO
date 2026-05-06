@@ -66,8 +66,15 @@ def load_data():
 # =========================
 MODELS = load_models()
 DF = load_data()
-LAST_YEAR = DF[DF['ds'].dt.year <= 2025]['ds'].dt.year.max()
+LAST_YEAR = 2025
+def init_data():
+    global MODELS, DF
 
+    if MODELS is None:
+        MODELS = load_models()
+
+    if DF is None:
+        DF = load_data()
 # =========================
 # MAIN LOGIC
 # =========================
@@ -215,4 +222,5 @@ app.add_middleware(
 
 @app.get("/api/rainfall")
 def api(wilayah: str = "Badung", tahun: int = 2026, bulan: int = 1):
+    init_data() 
     return get_response(wilayah, tahun, bulan)
